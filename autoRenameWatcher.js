@@ -1,8 +1,6 @@
 import fs from 'fs';
 import path from 'path';
 
-// For first file don't immediately download second file as it can mess up the flow
-
 // === Read directory from command-line argument ===
 const folderPath = process.argv[2];
 if (!folderPath) {
@@ -18,16 +16,21 @@ if (!fs.existsSync(folderPath) || !fs.statSync(folderPath).isDirectory()) {
 
 console.log(`👀 Watching folder: ${folderPath}`);
 
-// === Helper: find next available number ===
-function getNextNumber() {
-    const files = fs.readdirSync(folderPath);
-    const numbers = files
-        .map(file => path.parse(file).name)
-        .filter(name => /^\d+$/.test(name)) // only numeric names
-        .map(Number)
-        .sort((a, b) => a - b);
+// === Helper: find smallest missing positive integer, optionally excluding a filename ===
+function getNextNumber(excludeFilename) {
+    const files = fs.readdirSync(folderPath)
+        .filter(f => f !== excludeFilename); // ignore the current file if provided
 
-    return numbers.length ? numbers[numbers.length - 1] + 1 : 1;
+    const nums = new Set(
+        files
+            .map(f => path.parse(f).name)
+            .filter(name => /^\d+$/.test(name)) // only numeric names
+            .map(Number)
+    );
+
+    let i = 1;
+    while (nums.has(i)) i++;
+    return i;
 }
 
 // === Watch the folder for new files ===
@@ -42,17 +45,29 @@ fs.watch(folderPath, (eventType, filename) => {
 
         // Wait a bit to ensure file is fully written (esp. downloads)
         setTimeout(() => {
-            const nextNumber = getNextNumber();
+            // compute next number excluding the arriving file so an arriving numeric name
+            // (like "4") won't cause the algorithm to skip earlier gaps.
+            const nextNumber = getNextNumber(filename);
             const ext = path.extname(filename);
             const newName = `${nextNumber}${ext}`;
             const newPath = path.join(folderPath, newName);
 
-            // Avoid renaming if already numbered or name conflict
-            if (/^\d+\./.test(filename) || fs.existsSync(newPath)) return;
+            // If the file is already correctly named (e.g. "2.jpg" and nextNumber is 2), skip.
+            const baseName = path.parse(filename).name;
+            if (baseName === String(nextNumber)) return;
+
+            // Avoid overwriting an existing file
+            if (fs.existsSync(newPath)) {
+                console.warn(`⚠️ Target exists, skipping rename: ${newName}`);
+                return;
+            }
 
             fs.rename(filePath, newPath, err => {
-                if (err) {}
-                else console.log(`✅ Renamed: ${filename} → ${newName}`);
+                if (err) {
+                    console.error('❌ Rename failed:', err.message);
+                } else {
+                    console.log(`✅ Renamed: ${filename} → ${newName}`);
+                }
             });
         }, 2000); // Adjust delay if your downloads take longer
     });
