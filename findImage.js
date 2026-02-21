@@ -7,6 +7,7 @@ function usage() {
   console.log('Usage:');
   console.log('  Build index: node findImage.js build <targetFolder> [--recursive] [--index-file=path]');
   console.log('  Find image: node findImage.js find <inputImage> [--threshold=10] [--use-index] [--index-file=path]');
+  console.log('  Find similar in folder: node findImage.js similar <folderPath> [--threshold=10] [--recursive]');
   console.log('  Legacy: node findImage.js <inputImage> <targetFolder> [--threshold=10] [--recursive]');
 }
 
@@ -156,6 +157,49 @@ async function findMatches(inputImage, targetFolder, options = {}) {
   return results;
 }
 
+async function findSimilarImagesInFolder(folderPath, options = {}) {
+  const { threshold = 10, recursive = false } = options;
+  if (!fs.existsSync(folderPath)) throw new Error('Folder not found');
+
+  // Collect all image paths
+  const imagePaths = [];
+  for await (const filePath of walk(folderPath, recursive)) {
+    if (isImageFile(filePath)) {
+      imagePaths.push(filePath);
+    }
+  }
+
+  // Compute hashes for all images
+  const images = [];
+  for (const imgPath of imagePaths) {
+    try {
+      const hash = await averageHash(imgPath);
+      images.push({ path: imgPath, hash });
+    } catch (err) {
+      // ignore unreadable files
+    }
+  }
+
+  // Find similar pairs
+  const similarPairs = [];
+  for (let i = 0; i < images.length; i++) {
+    for (let j = i + 1; j < images.length; j++) {
+      const dist = hammingDistance(images[i].hash, images[j].hash);
+      if (dist <= threshold) {
+        similarPairs.push({
+          image1: images[i].path,
+          image2: images[j].path,
+          distance: dist
+        });
+      }
+    }
+  }
+
+  // Sort by distance (most similar first)
+  similarPairs.sort((a, b) => a.distance - b.distance);
+  return similarPairs;
+}
+
 async function main() {
   const argv = process.argv.slice(2);
   if (argv.length < 1) {
@@ -240,6 +284,30 @@ async function main() {
       return;
     }
 
+    if (cmd === 'similar') {
+      const folderPath = argv[1];
+      if (!folderPath) {
+        usage();
+        process.exit(1);
+      }
+      let threshold = 10;
+      let recursive = false;
+      for (let i = 2; i < argv.length; i++) {
+        const a = argv[i];
+        if (a.startsWith('--threshold=')) threshold = Number(a.split('=')[1]);
+        if (a === '--recursive' || a === '-r') recursive = true;
+      }
+      const similarPairs = await findSimilarImagesInFolder(folderPath, { threshold, recursive });
+      if (similarPairs.length === 0) {
+        console.log('No similar images found');
+        return;
+      }
+      for (const pair of similarPairs) {
+        console.log(`${pair.distance}\t${pair.image1}\t${pair.image2}`);
+      }
+      return;
+    }
+
     // legacy default behavior when first arg is image and second arg folder
     if (argv.length >= 2) {
       const inputImage = argv[0];
@@ -271,3 +339,5 @@ async function main() {
 if (import.meta.url === `file://${process.argv[1]}` || process.argv[1].endsWith('findImage.js')) {
   main();
 }
+
+export { findMatches, findSimilarImagesInFolder, averageHash, hammingDistance };
