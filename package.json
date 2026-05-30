@@ -5,6 +5,7 @@
   },
   "dependencies": {
     "fluent-ffmpeg": "^2.1.3",
-    "jimp": "^0.16.1"
+    "jimp": "^0.16.1",
+    "svgo": "^4.0.1"
   }
 }

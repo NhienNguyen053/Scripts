@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
+import { optimize } from "svgo";
 
 // 📥 Get directory from command line
 const DIRECTORY = process.argv[2];
@@ -9,6 +10,19 @@ if (!DIRECTORY) {
     console.error("❌ Please provide a directory path.");
     console.log("Usage: node findSvg.js <directory>");
     process.exit(1);
+}
+
+function normalizeSvg(content) {
+    const result = optimize(content, {
+        multipass: true,
+        plugins: [
+            "removeMetadata",
+            "removeComments",
+            "sortAttrs",
+            "removeUselessDefs"
+        ]
+    });
+    return result.data;
 }
 
 function getAllSvgFiles(dir) {
@@ -30,8 +44,17 @@ function getAllSvgFiles(dir) {
 }
 
 function hashFile(filePath) {
-    const content = fs.readFileSync(filePath);
-    return crypto.createHash("sha256").update(content).digest("hex");
+    try {
+        const raw = fs.readFileSync(filePath, "utf-8");
+        const normalized = normalizeSvg(raw);
+
+        return crypto.createHash("sha256")
+            .update(normalized)
+            .digest("hex");
+    } catch (err) {
+        console.warn(`⚠️ Skipping invalid SVG: ${filePath}`);
+        return null;
+    }
 }
 
 function findDuplicateSvgs(directory) {
@@ -40,6 +63,7 @@ function findDuplicateSvgs(directory) {
 
     for (const file of files) {
         const hash = hashFile(file);
+        if (!hash) continue;
 
         if (!hashMap[hash]) {
             hashMap[hash] = [];
