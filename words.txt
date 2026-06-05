@@ -152,7 +152,6 @@ ahead
 ahems
 ahkio
 ahold
-aholt
 ahull
 ahuru
 aided
@@ -216,7 +215,6 @@ allow
 alloy
 allyl
 almah
-almon
 almug
 aloes
 aloft
@@ -1634,7 +1632,6 @@ conin
 conks
 conky
 conns
-contd
 conte
 conti
 conto
@@ -5532,7 +5529,6 @@ outen
 outer
 outgo
 outie
-outly
 outro
 outta
 ouzel
