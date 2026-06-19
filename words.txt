@@ -4670,6 +4670,7 @@ madam
 madly
 madre
 mafic
+mafia
 magic
 magma
 magot
@@ -4688,7 +4689,6 @@ mains
 maire
 maist
 maize
-majid
 major
 makai
 makar

@@ -50,3 +50,6 @@ dist.tar.gz
 
 # ignore findImage index created by script
 .findImage_index.json
+
+# temp files
+text.txt
