@@ -26,6 +26,9 @@ def typing_test(stdscr):
     start_time = None
     typed = []
 
+    correct_total = 0
+    total_inputs = 0
+
     while True:
         stdscr.clear()
         height, width = stdscr.getmaxyx()
@@ -53,12 +56,11 @@ def typing_test(stdscr):
             else:
                 stdscr.addstr(row, col, ch, curses.color_pair(2))
 
-        # Stats (derived from current state so backspace stays consistent)
+        # Stats
         if start_time:
             elapsed = time.time() - start_time
-            correct = sum(1 for i, ch in enumerate(typed) if ch == TEXT[i])
-            wpm = int((correct / 5) / (elapsed / 60)) if elapsed > 0 else 0
-            acc = (correct / len(typed) * 100) if typed else 0
+            wpm = int((correct_total / 5) / (elapsed / 60)) if elapsed > 0 else 0
+            acc = (correct_total / total_inputs * 100) if total_inputs else 0
             stdscr.addstr(height - 2, 0, f"WPM: {wpm}  Accuracy: {acc:.2f}%")
 
         # Cursor
@@ -80,6 +82,10 @@ def typing_test(stdscr):
 
         elif isinstance(key, str) and len(typed) < len(TEXT):
             typed.append(key)
+            total_inputs += 1
+
+            if key == TEXT[len(typed) - 1]:
+                correct_total += 1
 
         if len(typed) == len(TEXT):
             break
